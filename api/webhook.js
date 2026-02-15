@@ -65,8 +65,6 @@ export default async function handler(req, res) {
       const mbtiTypes = [
         "INFP", "ENFP", "INFJ", "ENFJ",
         "INTJ", "ENTJ", "INTP", "ENTP",
-        "ISFP", "ESFP", "ISTP", "ESTP",
-        "ISFJ", "ESFJ", "ISTJ", "ESTJ",
       ];
       await replyToLine(replyToken, [
         {
