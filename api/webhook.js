@@ -1,13 +1,19 @@
-// api/webhook.js — Vercel Serverless Function: LINE Bot Webhook
+// api/webhook.js — Vercel Serverless Function: LINE Bot Webhook（会話型フロー）
 // POST /api/webhook でLINEからのイベントを受け取り、analyzeLocal で判定して返信する
+//
+// フロー:
+//   「診断」送信 → MBTIタイプ入力待ち → 文章入力待ち → 判定結果返信
 
 import { analyzeLocal } from "./analyze.js";
 
+// --- ユーザー状態管理（インメモリ） ---
+const userStates = {};
+
 function scoreEmoji(score) {
-  if (score >= 80) return "\u2705";
-  if (score >= 60) return "\u26A0\uFE0F";
-  if (score >= 40) return "\uD83D\uDD36";
-  return "\uD83D\uDEA8";
+  if (score >= 80) return "✅";
+  if (score >= 60) return "⚠️";
+  if (score >= 40) return "🔶";
+  return "🚨";
 }
 
 async function replyToLine(replyToken, messages) {
@@ -30,6 +36,25 @@ async function replyToLine(replyToken, messages) {
   }
 }
 
+function formatResult(result) {
+  const emoji = scoreEmoji(result.score);
+  const detected =
+    result.ngWords.length > 0
+      ? result.ngWords.map((nw) => `・${nw.keyword}（${nw.reason}）`).join("\n")
+      : "なし";
+  const reasons = result.scoreReason.join("\n");
+
+  return (
+    `${emoji} 安全スコア: ${result.score}/100\n` +
+    `\n` +
+    `【検出された表現】\n${detected}\n` +
+    `\n` +
+    `【判定理由】\n${reasons}\n` +
+    `\n` +
+    `【改善案】\n${result.improved}`
+  );
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
@@ -40,29 +65,66 @@ export default async function handler(req, res) {
   for (const event of events) {
     if (event.type !== "message" || event.message?.type !== "text") continue;
 
-    const userText = event.message.text;
+    const userId = event.source?.userId;
+    if (!userId) continue;
+
+    const userText = event.message.text.trim();
     const replyToken = event.replyToken;
+    const state = userStates[userId];
 
-    console.log(`[LINE] received: "${userText}"`);
+    console.log(`[LINE] userId=${userId} text="${userText}" step=${state?.step || "none"}`);
 
-    const result = analyzeLocal(userText, "INFP");
-    const emoji = scoreEmoji(result.score);
-    const detected =
-      result.ngWords.length > 0
-        ? result.ngWords.map((nw) => `\u30FB${nw.keyword}\uFF08${nw.reason}\uFF09`).join("\n")
-        : "\u306A\u3057";
-    const reasons = result.scoreReason.join("\n");
+    // --- 「診断」でフロー開始 ---
+    if (userText === "診断") {
+      userStates[userId] = { step: "waiting_mbti" };
+      await replyToLine(replyToken, [
+        {
+          type: "text",
+          text: "MBTIタイプを入力してください（例: INFP, ESTJ）",
+        },
+      ]);
+      continue;
+    }
 
-    const replyText =
-      `${emoji} \u5B89\u5168\u30B9\u30B3\u30A2: ${result.score}/100\n` +
-      `\n` +
-      `\u3010\u691C\u51FA\u3055\u308C\u305F\u8868\u73FE\u3011\n${detected}\n` +
-      `\n` +
-      `\u3010\u5224\u5B9A\u7406\u7531\u3011\n${reasons}\n` +
-      `\n` +
-      `\u3010\u6539\u5584\u6848\u3011\n${result.improved}`;
+    // --- MBTI入力待ち ---
+    if (state?.step === "waiting_mbti") {
+      const mbti = userText.toUpperCase();
+      if (!/^[EI][SN][TF][JP]$/.test(mbti)) {
+        await replyToLine(replyToken, [
+          {
+            type: "text",
+            text: "有効なMBTIタイプを入力してください（例: INFP, ESTJ）",
+          },
+        ]);
+        continue;
+      }
+      userStates[userId] = { step: "waiting_text", mbti };
+      await replyToLine(replyToken, [
+        {
+          type: "text",
+          text: `${mbti} ですね！\nチェックしたい文章を送ってください。`,
+        },
+      ]);
+      continue;
+    }
 
-    await replyToLine(replyToken, [{ type: "text", text: replyText }]);
+    // --- 文章入力待ち → 判定実行 ---
+    if (state?.step === "waiting_text") {
+      const result = analyzeLocal(userText, state.mbti);
+      delete userStates[userId];
+      await replyToLine(replyToken, [
+        { type: "text", text: formatResult(result) },
+      ]);
+      continue;
+    }
+
+    // --- フロー外のメッセージ ---
+    await replyToLine(replyToken, [
+      {
+        type: "text",
+        text: "「診断」と送ると、MBTI地雷ワードチェックを開始します。",
+      },
+    ]);
   }
 
   return res.status(200).json({ ok: true });
