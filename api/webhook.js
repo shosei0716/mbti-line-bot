@@ -59,19 +59,66 @@ export default async function handler(req, res) {
 
     console.log(`[LINE] userId=${userId} text="${userText}" step=${state?.step || "none"}`);
 
-    // --- 「診断」or「診断を始める」でフロー開始 ---
+    // --- 「診断」or「診断を始める」でフロー開始 → E/I 選択 ---
     if (userText === "診断" || userText === "診断を始める") {
+      userStates[userId] = { step: "waiting_ei" };
+      await replyToLine(replyToken, [
+        {
+          type: "text",
+          text: "相手のタイプを選んでください",
+          quickReply: {
+            items: [
+              {
+                type: "action",
+                action: { type: "message", label: "外向型（E）", text: "E" },
+              },
+              {
+                type: "action",
+                action: { type: "message", label: "内向型（I）", text: "I" },
+              },
+            ],
+          },
+        },
+      ]);
+      continue;
+    }
+
+    // --- E/I 選択待ち → MBTI 8タイプ表示 ---
+    if (state?.step === "waiting_ei") {
+      const ei = userText.toUpperCase();
+      const mbtiMap = {
+        E: ["ENFP", "ENFJ", "ENTP", "ENTJ", "ESFP", "ESFJ", "ESTP", "ESTJ"],
+        I: ["INFP", "INFJ", "INTP", "INTJ", "ISFP", "ISFJ", "ISTP", "ISTJ"],
+      };
+      const types = mbtiMap[ei];
+      if (!types) {
+        await replyToLine(replyToken, [
+          {
+            type: "text",
+            text: "E（外向型）または I（内向型）を選んでください",
+            quickReply: {
+              items: [
+                {
+                  type: "action",
+                  action: { type: "message", label: "外向型（E）", text: "E" },
+                },
+                {
+                  type: "action",
+                  action: { type: "message", label: "内向型（I）", text: "I" },
+                },
+              ],
+            },
+          },
+        ]);
+        continue;
+      }
       userStates[userId] = { step: "waiting_mbti" };
-      const mbtiTypes = [
-        "INFP", "ENFP", "INFJ", "ENFJ",
-        "INTJ", "ENTJ", "INTP", "ENTP",
-      ];
       await replyToLine(replyToken, [
         {
           type: "text",
           text: "相手のMBTIを選んでください",
           quickReply: {
-            items: mbtiTypes.map((t) => ({
+            items: types.map((t) => ({
               type: "action",
               action: { type: "message", label: t, text: t },
             })),
