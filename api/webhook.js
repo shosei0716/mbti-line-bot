@@ -9,11 +9,11 @@ import { analyzeLocal } from "./analyze.js";
 // --- ユーザー状態管理（インメモリ） ---
 const userStates = {};
 
-function scoreEmoji(score) {
-  if (score >= 80) return "✅";
-  if (score >= 60) return "⚠️";
-  if (score >= 40) return "🔶";
-  return "🚨";
+function riskLabel(risk) {
+  if (risk >= 60) return { emoji: "🔴", label: "地雷" };
+  if (risk >= 30) return { emoji: "🟠", label: "危険" };
+  if (risk >= 10) return { emoji: "🟡", label: "注意" };
+  return { emoji: "🟢", label: "安全" };
 }
 
 async function replyToLine(replyToken, messages) {
@@ -37,21 +37,19 @@ async function replyToLine(replyToken, messages) {
 }
 
 function formatResult(result) {
-  const emoji = scoreEmoji(result.score);
-  const detected =
-    result.ngWords.length > 0
-      ? result.ngWords.map((nw) => `・${nw.keyword}（${nw.reason}）`).join("\n")
-      : "なし";
+  const risk = 100 - result.score;
+  const { emoji, label } = riskLabel(risk);
   const reasons = result.scoreReason.join("\n");
+  const sep = "━━━━━━━━━━━━";
 
   return (
-    `${emoji} 安全スコア: ${result.score}/100\n` +
+    `${sep}\n` +
+    `⚠️ 地雷リスク：${risk}%（${emoji} ${label}）\n` +
+    `${sep}\n` +
     `\n` +
-    `【検出された表現】\n${detected}\n` +
+    `🧠 理由：\n${reasons}\n` +
     `\n` +
-    `【判定理由】\n${reasons}\n` +
-    `\n` +
-    `【改善案】\n${result.improved}`
+    `💡 改善案：\n${result.improved}`
   );
 }
 
@@ -74,13 +72,25 @@ export default async function handler(req, res) {
 
     console.log(`[LINE] userId=${userId} text="${userText}" step=${state?.step || "none"}`);
 
-    // --- 「診断」でフロー開始 ---
-    if (userText === "診断") {
+    // --- 「診断」or「診断を始める」でフロー開始 ---
+    if (userText === "診断" || userText === "診断を始める") {
       userStates[userId] = { step: "waiting_mbti" };
+      const mbtiTypes = [
+        "INFP", "ENFP", "INFJ", "ENFJ",
+        "INTJ", "ENTJ", "INTP", "ENTP",
+        "ISFP", "ESFP", "ISTP", "ESTP",
+        "ISFJ", "ESFJ", "ISTJ", "ESTJ",
+      ];
       await replyToLine(replyToken, [
         {
           type: "text",
-          text: "MBTIタイプを入力してください（例: INFP, ESTJ）",
+          text: "相手のMBTIを選んでください",
+          quickReply: {
+            items: mbtiTypes.map((t) => ({
+              type: "action",
+              action: { type: "message", label: t, text: t },
+            })),
+          },
         },
       ]);
       continue;
@@ -113,16 +123,43 @@ export default async function handler(req, res) {
       const result = analyzeLocal(userText, state.mbti);
       delete userStates[userId];
       await replyToLine(replyToken, [
-        { type: "text", text: formatResult(result) },
+        {
+          type: "text",
+          text: formatResult(result),
+          quickReply: {
+            items: [
+              {
+                type: "action",
+                action: {
+                  type: "message",
+                  label: "もう一度診断する",
+                  text: "診断を始める",
+                },
+              },
+            ],
+          },
+        },
       ]);
       continue;
     }
 
-    // --- フロー外のメッセージ ---
+    // --- フロー外のメッセージ → Quick Reply で案内 ---
     await replyToLine(replyToken, [
       {
         type: "text",
-        text: "「診断」と送ると、MBTI地雷ワードチェックを開始します。",
+        text: "🔍 MBTI地雷診断を始めますか？",
+        quickReply: {
+          items: [
+            {
+              type: "action",
+              action: {
+                type: "message",
+                label: "診断を始める",
+                text: "診断を始める",
+              },
+            },
+          ],
+        },
       },
     ]);
   }
