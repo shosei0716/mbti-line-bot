@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MBTI 地雷ワードチェッカー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 16px;
+    }
+    .container {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 16px;
+      max-width: 520px;
+      width: 100%;
+      padding: 40px 32px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ff6b6b, #ffa94d, #ffd43b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+    label { font-weight: bold; display: block; margin-bottom: 8px; color: #aaa; font-size: 0.9rem; }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #3a3a5a;
+      border-radius: 8px;
+      background: #12122a;
+      color: #fff;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: #ffa94d; }
+    .error-msg { color: #ff6b6b; font-size: 0.85rem; margin-top: 6px; display: none; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 12px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #ff6b6b, #ffa94d);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { background: #2a2a4a; color: #ccc; }
+    .btn-secondary:hover { background: #3a3a5a; }
+    .divider {
+      text-align: center;
+      color: #555;
+      margin: 20px 0;
+      font-size: 0.85rem;
+    }
+
+    /* 診断 */
+    .quiz-section { display: none; }
+    .quiz-progress {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .quiz-progress .dot {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #2a2a4a;
+      transition: background 0.3s;
+    }
+    .quiz-progress .dot.active {
+      background: linear-gradient(90deg, #ff6b6b, #ffa94d);
+    }
+    .quiz-question {
+      font-size: 1.05rem;
+      font-weight: bold;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+    .quiz-option {
+      padding: 14px 18px;
+      border: 1px solid #3a3a5a;
+      border-radius: 10px;
+      background: #12122a;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .quiz-option:hover { border-color: #ffa94d; background: #1e1e3a; }
+
+    /* 結果 */
+    .result-section { display: none; }
+    .result-type {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 4px;
+      margin-bottom: 4px;
+      background: linear-gradient(135deg, #ff6b6b, #ffa94d);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .result-name {
+      text-align: center;
+      color: #888;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+    .mineword-list { list-style: none; }
+    .mineword-list li {
+      padding: 14px 18px;
+      background: #12122a;
+      border-left: 4px solid #ff6b6b;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      animation: fadeIn 0.4s ease forwards;
+      opacity: 0;
+    }
+    .mineword-list li:nth-child(1) { animation-delay: 0.1s; }
+    .mineword-list li:nth-child(2) { animation-delay: 0.2s; }
+    .mineword-list li:nth-child(3) { animation-delay: 0.3s; }
+    .mineword-list li:nth-child(4) { animation-delay: 0.4s; }
+    .mineword-list li:nth-child(5) { animation-delay: 0.5s; }
+    .mineword-word {
+      font-weight: 600;
+      color: #ff6b6b;
+      font-size: 0.95rem;
+    }
+    .mineword-desc {
+      color: #888;
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    /* 文章解析セクション */
+    .analyze-section { display: none; }
+    .analyze-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 14px 16px;
+      border: 2px solid #3a3a5a;
+      border-radius: 8px;
+      background: #12122a;
+      color: #fff;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      outline: none;
+      resize: vertical;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .analyze-textarea:focus { border-color: #ffa94d; }
+    .analyze-textarea::placeholder { color: #555; }
+    .analyze-target {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+    .analyze-target label { margin-bottom: 0; flex-shrink: 0; }
+    .analyze-target input[type="text"] {
+      text-align: center;
+      letter-spacing: 2px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+    .char-count {
+      text-align: right;
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 4px;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff4;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 解析結果 */
+    .analyze-result { display: none; margin-top: 20px; }
+    .analyze-result-card {
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .analyze-result-card h3 {
+      font-size: 0.85rem;
+      color: #ffa94d;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    .ng-item {
+      padding: 10px 14px;
+      background: #1a1a2e;
+      border-left: 3px solid #ff6b6b;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .ng-item:last-child { margin-bottom: 0; }
+    .ng-keyword {
+      font-weight: 600;
+      color: #ff6b6b;
+      font-size: 0.9rem;
+    }
+    .ng-reason {
+      color: #999;
+      font-size: 0.8rem;
+      margin-top: 3px;
+    }
+    .ng-target {
+      display: inline-block;
+      font-size: 0.7rem;
+      color: #ffa94d;
+      background: #ffa94d1a;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-top: 4px;
+    }
+    .improved-text {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #ccc;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .improved-text mark {
+      background: #ffa94d33;
+      color: #ffd43b;
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    .score-bar-wrap {
+      margin-bottom: 14px;
+    }
+    .score-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+    .score-bar {
+      height: 8px;
+      background: #2a2a4a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .score-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+    .score-fill.safe { background: linear-gradient(90deg, #51cf66, #94d82d); }
+    .score-fill.warn { background: linear-gradient(90deg, #ffd43b, #ffa94d); }
+    .score-fill.danger { background: linear-gradient(90deg, #ffa94d, #ff6b6b); }
+    .score-reasons {
+      list-style: none;
+      margin-top: 10px;
+    }
+    .score-reasons li {
+      font-size: 0.8rem;
+      color: #999;
+      padding: 4px 0;
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.4;
+    }
+    .score-reasons li::before {
+      content: ">";
+      position: absolute;
+      left: 0;
+      color: #ffa94d;
+    }
+    .api-error-msg {
+      background: #ff6b6b22;
+      border: 1px solid #ff6b6b44;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: #ff6b6b;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MBTI 地雷ワードチェッカー</h1>
+    <p class="subtitle">あなたのMBTIタイプに潜む「地雷ワード」を確認しよう</p>
+
+    <!-- 入力セクション -->
+    <div id="inputSection">
+      <label for="mbtiInput">MBTIタイプを入力</label>
+      <input type="text" id="mbtiInput" placeholder="例: INFP" maxlength="4">
+      <p class="error-msg" id="errorMsg">有効なMBTIタイプを入力してください（例: INFP, ESTJ）</p>
+      <button class="btn btn-primary" id="submitBtn">結果を見る</button>
+      <div class="divider">── または ──</div>
+      <button class="btn btn-secondary" id="quizStartBtn">自分のMBTIがわからない？ 簡易診断する</button>
+    </div>
+
+    <!-- 診断セクション -->
+    <div class="quiz-section" id="quizSection">
+      <div class="quiz-progress" id="quizProgress">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+      <p class="quiz-question" id="quizQuestion"></p>
+      <div class="quiz-options" id="quizOptions"></div>
+      <button class="btn btn-secondary" id="quizBackBtn" style="margin-top: 16px;">戻る</button>
+    </div>
+
+    <!-- 文章解析セクション -->
+    <div class="analyze-section" id="analyzeSection">
+      <label for="analyzeInput">相手に送る文章を入力</label>
+      <textarea class="analyze-textarea" id="analyzeInput" placeholder="例: もっと周りに合わせたほうがいいんじゃない？考えすぎだと思うよ。普通はもっとちゃんとするでしょ。"></textarea>
+      <div class="char-count"><span id="charCount">0</span> 文字</div>
+      <div class="analyze-target">
+        <label for="targetMbti">相手のMBTI</label>
+        <input type="text" id="targetMbti" placeholder="例: INFP" maxlength="4" style="flex:1;">
+      </div>
+      <p class="error-msg" id="analyzeError">相手のMBTIタイプを正しく入力してください</p>
+      <button class="btn btn-primary" id="analyzeBtn">判定する</button>
+      <div class="api-error-msg" id="apiErrorMsg"></div>
+      <div class="divider">── または ──</div>
+      <button class="btn btn-secondary" id="analyzeBackBtn">MBTI診断に戻る</button>
+
+      <!-- 解析結果 -->
+      <div class="analyze-result" id="analyzeResult">
+        <div class="analyze-result-card">
+          <h3>安全スコア</h3>
+          <div class="score-bar-wrap">
+            <div class="score-label">
+              <span>危険</span>
+              <span id="scoreValue">--</span>
+              <span>安全</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" id="scoreFill" style="width: 0%"></div>
+            </div>
+          </div>
+          <ul class="score-reasons" id="scoreReasons"></ul>
+        </div>
+
+        <div class="analyze-result-card" id="ngCard">
+          <h3>検出されたNGワード</h3>
+          <div id="ngList"></div>
+        </div>
+
+        <div class="analyze-result-card" id="improvedCard">
+          <h3>改善案</h3>
+          <div class="improved-text" id="improvedText"></div>
+        </div>
+
+        <button class="btn btn-secondary" id="analyzeRetryBtn" style="margin-top: 4px;">別の文章を判定する</button>
+      </div>
+    </div>
+
+    <!-- 結果セクション -->
+    <div class="result-section" id="resultSection">
+      <div class="result-type" id="resultType"></div>
+      <p class="result-name" id="resultName"></p>
+      <label>地雷ワード</label>
+      <ul class="mineword-list" id="minewordList"></ul>
+      <button class="btn btn-primary" id="goAnalyzeBtn" style="margin-top: 24px;">この相手に送る文章をチェック</button>
+      <button class="btn btn-secondary" id="retryBtn" style="margin-top: 8px;">もう一度やり直す</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== データ定義（将来的にJSON外部ファイルへ分離可能） =====
+    const MBTI_DATA = {
+      INTJ: {
+        name: "建築家",
+        minewords: [
+          { word: "もっと周りに合わせたら？", desc: "同調圧力が最大の地雷" },
+          { word: "考えすぎだよ", desc: "深い思考を否定される" },
+          { word: "理屈っぽいね", desc: "論理性を欠点扱いされる" },
+          { word: "みんなそうしてるよ？", desc: "多数派論法への嫌悪" },
+          { word: "なんでそんなに冷たいの？", desc: "感情表現を強制される" }
+        ]
+      },
+      INTP: {
+        name: "論理学者",
+        minewords: [
+          { word: "早く決めてよ", desc: "熟考する時間を奪われる" },
+          { word: "普通はこうするでしょ", desc: "常識の押しつけ" },
+          { word: "で、結論は？", desc: "思考プロセスの軽視" },
+          { word: "それ意味ある？", desc: "知的好奇心の否定" },
+          { word: "もっとちゃんとして", desc: "曖昧な基準の押しつけ" }
+        ]
+      },
+      ENTJ: {
+        name: "指揮官",
+        minewords: [
+          { word: "あなたに任せるのは不安", desc: "能力への不信感" },
+          { word: "そんなに仕切らないで", desc: "リーダーシップの否定" },
+          { word: "無理だと思うよ", desc: "可能性の否定が許せない" },
+          { word: "もう少し謙虚になったら？", desc: "自信を傲慢と言われる" }
+        ]
+      },
+      ENTP: {
+        name: "討論者",
+        minewords: [
+          { word: "屁理屈ばっかり", desc: "議論を楽しむ姿勢の否定" },
+          { word: "もう少し空気読んで", desc: "暗黙のルールの強制" },
+          { word: "それ現実的じゃないよ", desc: "可能性の探究を封じられる" },
+          { word: "飽きっぽいよね", desc: "多方面の興味への批判" },
+          { word: "真面目にやって", desc: "自由な発想の制限" }
+        ]
+      },
+      INFJ: {
+        name: "提唱者",
+        minewords: [
+          { word: "考えすぎだって", desc: "洞察力を過剰反応扱いされる" },
+          { word: "そんなの気にしすぎ", desc: "繊細さを弱さとされる" },
+          { word: "本音を言ってよ", desc: "心を無理にこじ開けられる" },
+          { word: "繊細すぎない？", desc: "感受性の否定" }
+        ]
+      },
+      INFP: {
+        name: "仲介者",
+        minewords: [
+          { word: "現実を見なよ", desc: "理想を持つこと自体の否定" },
+          { word: "甘いよね", desc: "優しさを弱さと言われる" },
+          { word: "そんなの理想論だよ", desc: "価値観の全否定" },
+          { word: "泣いてもしょうがないでしょ", desc: "感情表現の否定" },
+          { word: "もっとしっかりしなよ", desc: "自分のペースを認めてもらえない" }
+        ]
+      },
+      ENFJ: {
+        name: "主人公",
+        minewords: [
+          { word: "お節介だよ", desc: "善意を否定される" },
+          { word: "頼んでないけど", desc: "自発的な助けの拒否" },
+          { word: "自分のこと先にやれば？", desc: "他者貢献への批判" },
+          { word: "偽善者っぽい", desc: "誠意を疑われる" }
+        ]
+      },
+      ENFP: {
+        name: "広報運動家",
+        minewords: [
+          { word: "落ち着きなよ", desc: "エネルギーの否定" },
+          { word: "また途中でやめるんでしょ", desc: "過去の失敗の蒸し返し" },
+          { word: "テンション高すぎ", desc: "感情の自由な表現を抑えられる" },
+          { word: "もう少し計画的にやったら？", desc: "自由さの否定" },
+          { word: "夢見すぎ", desc: "ビジョンの否定" }
+        ]
+      },
+      ISTJ: {
+        name: "管理者",
+        minewords: [
+          { word: "融通きかないね", desc: "一貫性を欠点扱いされる" },
+          { word: "もっと柔軟にやろうよ", desc: "計画外の行動を強いられる" },
+          { word: "堅すぎない？", desc: "誠実さの否定" },
+          { word: "ルール通りじゃなくてもいいじゃん", desc: "秩序の軽視" }
+        ]
+      },
+      ISFJ: {
+        name: "擁護者",
+        minewords: [
+          { word: "そんなに気を遣わなくていいよ", desc: "気遣いの否定" },
+          { word: "自分の意見ないの？", desc: "協調性を弱さと言われる" },
+          { word: "断ればいいのに", desc: "優しさを理解されない" },
+          { word: "都合よく使われてるよ", desc: "献身への攻撃" }
+        ]
+      },
+      ESTJ: {
+        name: "幹部",
+        minewords: [
+          { word: "偉そうだね", desc: "リーダーシップの否定" },
+          { word: "押し付けないでよ", desc: "指導を強制と言われる" },
+          { word: "あなたのやり方が全てじゃない", desc: "経験則の否定" },
+          { word: "もう少し優しく言えない？", desc: "効率重視への批判" }
+        ]
+      },
+      ESFJ: {
+        name: "領事官",
+        minewords: [
+          { word: "人の目気にしすぎ", desc: "社交性への批判" },
+          { word: "八方美人だよね", desc: "調和の努力の否定" },
+          { word: "嫌われたくないだけでしょ", desc: "動機を疑われる" },
+          { word: "自分がないよね", desc: "協調性を個性のなさと言われる" }
+        ]
+      },
+      ISTP: {
+        name: "巨匠",
+        minewords: [
+          { word: "もっと感情出してよ", desc: "感情表現の強制" },
+          { word: "冷たいよね", desc: "冷静さを冷淡扱いされる" },
+          { word: "ちゃんと報連相して", desc: "自由な行動の制限" },
+          { word: "協調性ないよね", desc: "独立性を欠点扱いされる" }
+        ]
+      },
+      ISFP: {
+        name: "冒険家",
+        minewords: [
+          { word: "もっとはっきり言ってよ", desc: "控えめさの否定" },
+          { word: "優柔不断だよね", desc: "慎重さを弱点扱いされる" },
+          { word: "将来のこと考えてる？", desc: "今を生きる姿勢への批判" },
+          { word: "それで食べていけるの？", desc: "情熱の軽視" }
+        ]
+      },
+      ESTP: {
+        name: "起業家",
+        minewords: [
+          { word: "後先考えなさすぎ", desc: "行動力を軽率と言われる" },
+          { word: "もう少し落ち着いたら？", desc: "即断即決の否定" },
+          { word: "雑すぎるよ", desc: "スピード感への批判" },
+          { word: "ちゃんと反省してる？", desc: "過去の失敗の蒸し返し" }
+        ]
+      },
+      ESFP: {
+        name: "エンターテイナー",
+        minewords: [
+          { word: "ふざけすぎ", desc: "楽しさの否定" },
+          { word: "もう少し真面目にやって", desc: "自由さの抑制" },
+          { word: "空気読めてないよ", desc: "ムードメーカーの否定" },
+          { word: "チャラいよね", desc: "表面的と決めつけられる" },
+          { word: "深みがないよね", desc: "人格の否定" }
+        ]
+      }
+    };
+
+    const QUIZ_QUESTIONS = [
+      {
+        question: "休日の過ごし方は？",
+        options: [
+          { label: "友人と出かけたり、人と会う予定を入れる", value: "E" },
+          { label: "家でひとりの時間を楽しむ", value: "I" }
+        ],
+        dimension: 0
+      },
+      {
+        question: "物事を判断するとき、何を重視する？",
+        options: [
+          { label: "具体的な事実やデータ", value: "S" },
+          { label: "直感やひらめき", value: "N" }
+        ],
+        dimension: 1
+      },
+      {
+        question: "意見が対立したとき、どうする？",
+        options: [
+          { label: "論理的に正しい方を選ぶ", value: "T" },
+          { label: "相手の気持ちを考えて判断する", value: "F" }
+        ],
+        dimension: 2
+      },
+      {
+        question: "旅行の計画を立てるとき、どちら派？",
+        options: [
+          { label: "事前にしっかり計画を立てる", value: "J" },
+          { label: "その場の流れで決める", value: "P" }
+        ],
+        dimension: 3
+      }
+    ];
+
+    // ===== DOM要素 =====
+    const inputSection = document.getElementById("inputSection");
+    const quizSection = document.getElementById("quizSection");
+    const resultSection = document.getElementById("resultSection");
+    const mbtiInput = document.getElementById("mbtiInput");
+    const errorMsg = document.getElementById("errorMsg");
+    const submitBtn = document.getElementById("submitBtn");
+    const quizStartBtn = document.getElementById("quizStartBtn");
+    const quizBackBtn = document.getElementById("quizBackBtn");
+    const quizProgress = document.getElementById("quizProgress");
+    const quizQuestion = document.getElementById("quizQuestion");
+    const quizOptions = document.getElementById("quizOptions");
+    const resultType = document.getElementById("resultType");
+    const resultName = document.getElementById("resultName");
+    const minewordList = document.getElementById("minewordList");
+    const retryBtn = document.getElementById("retryBtn");
+
+    // ===== 状態 =====
+    let currentQuizStep = 0;
+    let quizAnswers = ["", "", "", ""];
+
+    // ===== 直接入力 =====
+    submitBtn.addEventListener("click", () => {
+      const type = mbtiInput.value.trim().toUpperCase();
+      if (!MBTI_DATA[type]) {
+        errorMsg.style.display = "block";
+        return;
+      }
+      errorMsg.style.display = "none";
+      showResult(type);
+    });
+
+    mbtiInput.addEventListener("input", () => {
+      errorMsg.style.display = "none";
+    });
+
+    mbtiInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitBtn.click();
+    });
+
+    // ===== 簡易診断 =====
+    quizStartBtn.addEventListener("click", () => {
+      currentQuizStep = 0;
+      quizAnswers = ["", "", "", ""];
+      inputSection.style.display = "none";
+      quizSection.style.display = "block";
+      renderQuiz();
+    });
+
+    quizBackBtn.addEventListener("click", () => {
+      if (currentQuizStep > 0) {
+        currentQuizStep--;
+        renderQuiz();
+      } else {
+        quizSection.style.display = "none";
+        inputSection.style.display = "block";
+      }
+    });
+
+    function renderQuiz() {
+      const q = QUIZ_QUESTIONS[currentQuizStep];
+      quizQuestion.textContent = `Q${currentQuizStep + 1}. ${q.question}`;
+
+      const dots = quizProgress.querySelectorAll(".dot");
+      dots.forEach((dot, i) => {
+        dot.classList.toggle("active", i <= currentQuizStep);
+      });
+
+      quizOptions.innerHTML = "";
+      q.options.forEach((opt) => {
+        const div = document.createElement("div");
+        div.className = "quiz-option";
+        div.textContent = opt.label;
+        div.addEventListener("click", () => {
+          quizAnswers[q.dimension] = opt.value;
+          currentQuizStep++;
+          if (currentQuizStep < QUIZ_QUESTIONS.length) {
+            renderQuiz();
+          } else {
+            const type = quizAnswers.join("");
+            quizSection.style.display = "none";
+            showResult(type);
+          }
+        });
+        quizOptions.appendChild(div);
+      });
+
+      quizBackBtn.textContent = currentQuizStep > 0 ? "前の質問に戻る" : "最初に戻る";
+    }
+
+    // ===== 結果表示 =====
+    function showResult(type) {
+      const data = MBTI_DATA[type];
+      if (!data) return;
+
+      inputSection.style.display = "none";
+      quizSection.style.display = "none";
+      resultSection.style.display = "block";
+
+      resultType.textContent = type;
+      resultName.textContent = data.name;
+
+      minewordList.innerHTML = "";
+      data.minewords.forEach((item) => {
+        const li = document.createElement("li");
+        const wordEl = document.createElement("div");
+        wordEl.className = "mineword-word";
+        wordEl.textContent = `「${item.word}」`;
+        const descEl = document.createElement("div");
+        descEl.className = "mineword-desc";
+        descEl.textContent = item.desc;
+        li.appendChild(wordEl);
+        li.appendChild(descEl);
+        minewordList.appendChild(li);
+      });
+    }
+
+    // ===== 結果画面から文章解析へ =====
+    const goAnalyzeBtn = document.getElementById("goAnalyzeBtn");
+    goAnalyzeBtn.addEventListener("click", () => {
+      const currentType = resultType.textContent;
+      resultSection.style.display = "none";
+      showAnalyzeSection(currentType);
+    });
+
+    // ===== やり直し =====
+    retryBtn.addEventListener("click", () => {
+      resultSection.style.display = "none";
+      inputSection.style.display = "block";
+      mbtiInput.value = "";
+    });
+
+    // ===== 文章解析セクション =====
+    const analyzeSection = document.getElementById("analyzeSection");
+    const analyzeInput = document.getElementById("analyzeInput");
+    const targetMbti = document.getElementById("targetMbti");
+    const analyzeError = document.getElementById("analyzeError");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const analyzeBackBtn = document.getElementById("analyzeBackBtn");
+    const analyzeResult = document.getElementById("analyzeResult");
+    const analyzeRetryBtn = document.getElementById("analyzeRetryBtn");
+    const charCount = document.getElementById("charCount");
+
+    analyzeInput.addEventListener("input", () => {
+      charCount.textContent = analyzeInput.value.length;
+    });
+
+    targetMbti.addEventListener("input", () => {
+      analyzeError.style.display = "none";
+    });
+
+    function showAnalyzeSection(prefillMbti) {
+      analyzeSection.style.display = "block";
+      analyzeResult.style.display = "none";
+      analyzeInput.value = "";
+      charCount.textContent = "0";
+      targetMbti.value = prefillMbti || "";
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = "判定する";
+    }
+
+    analyzeBackBtn.addEventListener("click", () => {
+      analyzeSection.style.display = "none";
+      inputSection.style.display = "block";
+    });
+
+    analyzeRetryBtn.addEventListener("click", () => {
+      analyzeResult.style.display = "none";
+      analyzeInput.value = "";
+      charCount.textContent = "0";
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = "判定する";
+    });
+
+    const apiErrorMsg = document.getElementById("apiErrorMsg");
+
+    analyzeBtn.addEventListener("click", () => {
+      const text = analyzeInput.value.trim();
+      const target = targetMbti.value.trim().toUpperCase();
+
+      if (!text) {
+        analyzeInput.focus();
+        return;
+      }
+      if (!MBTI_DATA[target]) {
+        analyzeError.style.display = "block";
+        return;
+      }
+      analyzeError.style.display = "none";
+      apiErrorMsg.style.display = "none";
+
+      // ローディング表示
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = '<span class="loading-spinner"></span>AI解析中...';
+
+      analyzeText(text, target)
+        .then((result) => {
+          renderAnalyzeResult(result);
+        })
+        .catch((err) => {
+          apiErrorMsg.textContent = err.message || "解析に失敗しました。もう一度お試しください。";
+          apiErrorMsg.style.display = "block";
+        })
+        .finally(() => {
+          analyzeBtn.disabled = false;
+          analyzeBtn.innerHTML = "判定する";
+        });
+    });
+
+    // ===== analyzeText: API経由でAI判定 =====
+    // POST /api/analyze
+    // Request:  { text: string, targetMbti: string }
+    // Response: { score, scoreReason[], ngWords[], improved }
+    async function analyzeText(text, targetMbti) {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetMbti })
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `API エラー (${res.status})`);
+      }
+
+      return res.json();
+    }
+
+    // ===== 解析結果の描画 =====
+    function renderAnalyzeResult(result) {
+      analyzeResult.style.display = "block";
+
+      // スコア
+      const scoreFill = document.getElementById("scoreFill");
+      const scoreValue = document.getElementById("scoreValue");
+      scoreValue.textContent = result.score + " / 100";
+      scoreFill.style.width = result.score + "%";
+      scoreFill.className = "score-fill";
+      if (result.score >= 75) scoreFill.classList.add("safe");
+      else if (result.score >= 50) scoreFill.classList.add("warn");
+      else scoreFill.classList.add("danger");
+
+      // スコア理由
+      const scoreReasons = document.getElementById("scoreReasons");
+      scoreReasons.innerHTML = "";
+      if (result.scoreReason && result.scoreReason.length > 0) {
+        result.scoreReason.forEach((reason) => {
+          const li = document.createElement("li");
+          li.textContent = reason;
+          scoreReasons.appendChild(li);
+        });
+      }
+
+      // NGワード
+      const ngList = document.getElementById("ngList");
+      const ngCard = document.getElementById("ngCard");
+      if (!result.ngWords || result.ngWords.length === 0) {
+        ngCard.style.display = "none";
+      } else {
+        ngCard.style.display = "block";
+        ngList.innerHTML = "";
+        result.ngWords.forEach((ng) => {
+          const div = document.createElement("div");
+          div.className = "ng-item";
+          div.innerHTML =
+            `<div class="ng-keyword">「${escapeHtml(ng.keyword)}」</div>` +
+            `<div class="ng-reason">${escapeHtml(ng.reason)}</div>` +
+            `<span class="ng-target">${(ng.mbtiTypes || []).join(", ")} に注意</span>`;
+          ngList.appendChild(div);
+        });
+      }
+
+      // 改善案
+      const improvedCard = document.getElementById("improvedCard");
+      const improvedText = document.getElementById("improvedText");
+      if (!result.improved || result.improved === analyzeInput.value.trim()) {
+        improvedCard.style.display = "none";
+      } else {
+        improvedCard.style.display = "block";
+        improvedText.textContent = result.improved;
+      }
+
+      // 結果部分までスクロール
+      analyzeResult.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // ===== トップに「文章チェック」ボタン追加 =====
+    const quizStartBtnEl = document.getElementById("quizStartBtn");
+    const analyzeDirectBtn = document.createElement("button");
+    analyzeDirectBtn.className = "btn btn-secondary";
+    analyzeDirectBtn.textContent = "文章の地雷チェックをする";
+    analyzeDirectBtn.style.marginTop = "8px";
+    analyzeDirectBtn.addEventListener("click", () => {
+      inputSection.style.display = "none";
+      showAnalyzeSection("");
+    });
+    quizStartBtnEl.insertAdjacentElement("afterend", analyzeDirectBtn);
+  </script>
+</body>
+</html>

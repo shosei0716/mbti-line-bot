@@ -1,0 +1,14 @@
+{
+  "name": "mbti-mineword-checker",
+  "version": "1.0.0",
+  "description": "MBTI別に「相手が不快に感じやすい地雷ワード」を検出し、 言い換え案を提示するツールを作る",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
