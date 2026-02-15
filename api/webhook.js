@@ -37,7 +37,22 @@ async function replyToLine(replyToken, messages) {
 }
 
 function formatResult(result) {
-  return `テスト返信：スコア ${result.score}`;
+  const risk = 100 - result.score;
+  const { emoji, label } = riskLabel(risk);
+  const reasons = result.scoreReason.length > 0
+    ? result.scoreReason.join("\n")
+    : "大きな地雷表現は検出されませんでした。";
+  const sep = "━━━━━━━━━━━━";
+
+  return (
+    `${sep}\n` +
+    `⚠️ 地雷リスク：${risk}%（${emoji} ${label}）\n` +
+    `${sep}\n` +
+    `\n` +
+    `🧠 理由：\n${reasons}\n` +
+    `\n` +
+    `💡 改善案：\n${result.improved}`
+  );
 }
 
 export default async function handler(req, res) {
